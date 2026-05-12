@@ -250,6 +250,73 @@ fn get_credentials_for_url(
     Ok(matches)
 }
 
+// ─── TOTP Commands ─────────────────────────────────────────────
+
+#[derive(Serialize)]
+struct TotpCode {
+    code: String,
+    remaining_seconds: u64,
+}
+
+#[tauri::command]
+fn generate_totp(id: String, state: State<AppState>) -> HemdalResult<TotpCode> {
+    touch_activity(&state);
+    let vault = state
+        .vault
+        .lock()
+        .map_err(|_| HemdalError::CryptoError("Failed to lock vault mutex".to_string()))?;
+
+    let item = vault.get_item(&id)?;
+
+    let totp_secret = match &item.payload {
+        ItemPayload::Password { totp, .. } => totp.as_deref(),
+        _ => None,
+    };
+
+    let secret = totp_secret.ok_or_else(|| {
+        HemdalError::InvalidItemType("No TOTP secret stored for this item".to_string())
+    })?;
+
+    if secret.trim().is_empty() {
+        return Err(HemdalError::InvalidItemType(
+            "TOTP secret is empty".to_string(),
+        ));
+    }
+
+    use totp_rs::{Algorithm, Secret, TOTP};
+
+    let secret_bytes = Secret::Encoded(secret.trim().to_string())
+        .to_bytes()
+        .map_err(|e| HemdalError::CryptoError(format!("Invalid TOTP secret: {}", e)))?;
+
+    let totp = TOTP::new(
+        Algorithm::SHA1,
+        6,
+        1,
+        30,
+        secret_bytes,
+        None,
+        "".to_string(),
+    )
+    .map_err(|e| HemdalError::CryptoError(format!("TOTP init error: {}", e)))?;
+
+    let code = totp
+        .generate_current()
+        .map_err(|e| HemdalError::CryptoError(format!("TOTP generation error: {}", e)))?;
+
+    // Calculate remaining seconds in the current 30-second window
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    let remaining = 30 - (now % 30);
+
+    Ok(TotpCode {
+        code,
+        remaining_seconds: remaining,
+    })
+}
+
 // ─── Sync Commands ─────────────────────────────────────────────
 
 #[derive(Serialize)]
@@ -451,6 +518,7 @@ pub fn run() {
             search_items,
             toggle_favorite,
             get_credentials_for_url,
+            generate_totp,
             sync_status,
             enable_sync,
             disable_sync,

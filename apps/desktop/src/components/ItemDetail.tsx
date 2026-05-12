@@ -11,6 +11,7 @@ import {
   EyeOff,
   Check,
 } from "lucide-react";
+import TotpDisplay from "./TotpDisplay";
 
 interface VaultItem {
   id: string;
@@ -142,7 +143,7 @@ export default function ItemDetail() {
           <div className="space-y-3">
             {renderField("Username", p.username || "", "username")}
             {renderField("Password", p.password || "", "password", true)}
-            {p.totp && renderField("TOTP Secret", p.totp, "totp", true)}
+            {p.totp && <TotpDisplay itemId={item.id} />}
             {p.urls && p.urls.length > 0 && (
               <div className="card border-gray-800">
                 <span className="text-xs font-medium text-gray-500 uppercase tracking-wider block mb-2">
