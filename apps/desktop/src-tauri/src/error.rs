@@ -43,6 +43,9 @@ pub enum HemdalError {
 
     #[error("Invalid item type: {0}")]
     InvalidItemType(String),
+
+    #[error("Biometric error: {0}")]
+    BiometricError(String),
 }
 
 impl serde::Serialize for HemdalError {

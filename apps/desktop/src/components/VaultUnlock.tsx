@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Shield, Eye, EyeOff, AlertTriangle } from "lucide-react";
+import { Shield, Eye, EyeOff, AlertTriangle, Fingerprint } from "lucide-react";
 
 interface Props {
   onUnlock: () => void;
@@ -11,6 +11,13 @@ export default function VaultUnlock({ onUnlock }: Props) {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [biometricEnabled, setBiometricEnabled] = useState(false);
+
+  useEffect(() => {
+    invoke<boolean>("biometric_enabled")
+      .then(setBiometricEnabled)
+      .catch(() => setBiometricEnabled(false));
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,6 +29,20 @@ export default function VaultUnlock({ onUnlock }: Props) {
       onUnlock();
     } catch (e) {
       setError("Invalid master password. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBiometricUnlock = async () => {
+    setError("");
+    setLoading(true);
+
+    try {
+      await invoke("unlock_with_biometric");
+      onUnlock();
+    } catch (e) {
+      setError("Biometric unlock failed. Use your master password.");
     } finally {
       setLoading(false);
     }
@@ -79,6 +100,18 @@ export default function VaultUnlock({ onUnlock }: Props) {
                 "Unlock Vault"
               )}
             </button>
+
+            {biometricEnabled && (
+              <button
+                type="button"
+                onClick={handleBiometricUnlock}
+                disabled={loading}
+                className="btn-secondary w-full flex items-center justify-center gap-2"
+              >
+                <Fingerprint className="w-5 h-5" />
+                Unlock with Biometrics
+              </button>
+            )}
           </form>
         </div>
       </div>

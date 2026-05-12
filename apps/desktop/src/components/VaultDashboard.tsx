@@ -13,6 +13,7 @@ import {
   Shield,
   Trash2,
   ChevronRight,
+  Fingerprint,
 } from "lucide-react";
 
 interface VaultItem {
@@ -49,6 +50,10 @@ export default function VaultDashboard() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
+  const [biometricEnabled, setBiometricEnabled] = useState(false);
+  const [biometricLoading, setBiometricLoading] = useState(false);
+
   const filterType = searchParams.get("type");
 
   const loadItems = async () => {
@@ -64,8 +69,22 @@ export default function VaultDashboard() {
     }
   };
 
+  const loadBiometricStatus = async () => {
+    try {
+      const available = await invoke<boolean>("biometric_available");
+      setBiometricAvailable(available);
+      if (available) {
+        const enabled = await invoke<boolean>("biometric_enabled");
+        setBiometricEnabled(enabled);
+      }
+    } catch (e) {
+      console.error("Failed to load biometric status:", e);
+    }
+  };
+
   useEffect(() => {
     loadItems();
+    loadBiometricStatus();
   }, [filterType]);
 
   const handleSearch = async () => {
@@ -74,12 +93,12 @@ export default function VaultDashboard() {
       return;
     }
     try {
-      const result = await invoke<VaultItem[]>("search_items", {
+      const result = await invoke<VaultItem[]>("fuzzy_search", {
         query: searchQuery,
       });
       setItems(result);
     } catch (e) {
-      console.error("Search failed:", e);
+      console.error("Fuzzy search failed:", e);
     }
   };
 
@@ -99,6 +118,32 @@ export default function VaultDashboard() {
       loadItems();
     } catch (e) {
       console.error("Failed to delete item:", e);
+    }
+  };
+
+  const handleEnableBiometric = async () => {
+    setBiometricLoading(true);
+    try {
+      await invoke("enable_biometric");
+      setBiometricEnabled(true);
+    } catch (e) {
+      console.error("Failed to enable biometric:", e);
+      alert("Failed to enable biometric unlock. Make sure your vault is unlocked.");
+    } finally {
+      setBiometricLoading(false);
+    }
+  };
+
+  const handleDisableBiometric = async () => {
+    if (!confirm("Disable biometric unlock? You will need your master password next time.")) return;
+    setBiometricLoading(true);
+    try {
+      await invoke("disable_biometric");
+      setBiometricEnabled(false);
+    } catch (e) {
+      console.error("Failed to disable biometric:", e);
+    } finally {
+      setBiometricLoading(false);
     }
   };
 
@@ -172,6 +217,40 @@ export default function VaultDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Biometric Settings */}
+      {biometricAvailable && (
+        <div className="mb-6 card flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Fingerprint className="w-5 h-5 text-hemdal-400" />
+            <div>
+              <h3 className="text-sm font-medium text-white">Biometric Unlock</h3>
+              <p className="text-xs text-gray-500">
+                {biometricEnabled
+                  ? "Unlock your vault with Windows Hello"
+                  : "Enable fast unlock with Windows Hello"}
+              </p>
+            </div>
+          </div>
+          {biometricEnabled ? (
+            <button
+              onClick={handleDisableBiometric}
+              disabled={biometricLoading}
+              className="px-3 py-1.5 rounded-lg text-sm bg-red-950/50 text-red-400 border border-red-900 hover:bg-red-900/50 transition-colors"
+            >
+              {biometricLoading ? "..." : "Disable"}
+            </button>
+          ) : (
+            <button
+              onClick={handleEnableBiometric}
+              disabled={biometricLoading}
+              className="px-3 py-1.5 rounded-lg text-sm bg-hemdal-500/20 text-hemdal-400 border border-hemdal-500/30 hover:bg-hemdal-500/30 transition-colors"
+            >
+              {biometricLoading ? "..." : "Enable"}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Items List */}
       {loading ? (

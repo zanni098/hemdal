@@ -3,10 +3,9 @@ use std::sync::{Arc, Mutex};
 
 use axum::{
     Router,
-    extract::{Query, State},
-    http::StatusCode,
+    extract::{Json as AxumJson, Query, State},
     response::Json,
-    routing::get,
+    routing::{get, post},
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -105,6 +104,68 @@ async fn get_credentials(
     }
 }
 
+#[derive(Deserialize)]
+struct SaveCredentialRequest {
+    url: String,
+    username: String,
+    password: String,
+}
+
+async fn save_credential(
+    State(state): State<ApiState>,
+    AxumJson(body): AxumJson<SaveCredentialRequest>,
+) -> Json<ApiResponse<Value>> {
+    let mut vault = match state.vault.lock() {
+        Ok(v) => v,
+        Err(_) => {
+            return Json(ApiResponse {
+                success: false,
+                data: None,
+                error: Some("Failed to lock vault".to_string()),
+            });
+        }
+    };
+
+    if !vault.is_unlocked() {
+        return Json(ApiResponse {
+            success: false,
+            data: None,
+            error: Some("Vault is locked".to_string()),
+        });
+    }
+
+    let name = if body.url.is_empty() {
+        "New Password".to_string()
+    } else {
+        body.url.clone()
+    };
+
+    let payload = crate::vault::ItemPayload::Password {
+        username: body.username,
+        password: body.password,
+        urls: if body.url.is_empty() {
+            vec![]
+        } else {
+            vec![body.url]
+        },
+        notes: None,
+        totp: None,
+    };
+
+    match vault.add_item("password", &name, Vec::new(), &payload) {
+        Ok(item) => Json(ApiResponse {
+            success: true,
+            data: Some(serde_json::json!({ "id": item.id, "name": item.name })),
+            error: None,
+        }),
+        Err(e) => Json(ApiResponse {
+            success: false,
+            data: None,
+            error: Some(e.to_string()),
+        }),
+    }
+}
+
 async fn health_check(State(state): State<ApiState>) -> Json<ApiResponse<Value>> {
     let vault = match state.vault.lock() {
         Ok(v) => v,
@@ -138,6 +199,7 @@ pub async fn start_http_server(port: u16, vault: Arc<Mutex<Vault>>) -> HemdalRes
     let app = Router::new()
         .route("/health", get(health_check))
         .route("/credentials", get(get_credentials))
+        .route("/save", post(save_credential))
         .layer(cors)
         .with_state(ApiState { vault });
 

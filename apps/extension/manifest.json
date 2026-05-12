@@ -11,7 +11,8 @@
   ],
   "host_permissions": [
     "<all_urls>",
-    "http://localhost:19421/*"
+    "http://localhost:19421/*",
+    "http://127.0.0.1:19421/*"
   ],
   "background": {
     "service_worker": "background.js",

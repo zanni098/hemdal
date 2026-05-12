@@ -249,12 +249,17 @@ impl Vault {
         Ok(())
     }
 
+    /// Unlock the vault with a pre-derived vault key.
+    pub fn unlock_with_key(&mut self, vault_key: SecureKey) {
+        self.vault_key = Some(vault_key);
+    }
+
     /// Lock the vault (clear vault key from memory).
     pub fn lock(&mut self) {
         self.vault_key = None;
     }
 
-    fn vault_key(&self) -> HemdalResult<&SecureKey> {
+    pub fn vault_key(&self) -> HemdalResult<&SecureKey> {
         self.vault_key.as_ref().ok_or(HemdalError::VaultLocked)
     }
 
@@ -427,7 +432,7 @@ impl Vault {
         Ok(())
     }
 
-    /// Search items by name or tags.
+    /// Search items by name or tags (substring match).
     pub fn search_items(&self, query: &str) -> HemdalResult<Vec<DecryptedVaultItem>> {
         let vault_key = self.vault_key()?;
         let pattern = format!("%{}%", query);
@@ -447,6 +452,48 @@ impl Vault {
         }
 
         Ok(items)
+    }
+
+    /// Fuzzy search items by name with scoring.
+    pub fn fuzzy_search_items(&self, query: &str) -> HemdalResult<Vec<(DecryptedVaultItem, i32)>> {
+        let vault_key = self.vault_key()?;
+
+        let mut stmt = self.conn.prepare(
+            "SELECT id, item_type, name, created_at, updated_at, tags, favorite, encrypted_ciphertext, encrypted_nonce, encrypted_tag
+             FROM vault_items
+             ORDER BY name"
+        )?;
+
+        let rows = stmt.query_map([], |row| self.map_row_to_item(row, vault_key))?;
+
+        let mut scored_items: Vec<(DecryptedVaultItem, i32)> = Vec::new();
+        for row in rows {
+            let item = row?;
+            let score = crate::fuzzy::fuzzy_score(query, &item.name);
+            // Also check tags
+            let tag_score = item
+                .tags
+                .iter()
+                .map(|tag| crate::fuzzy::fuzzy_score(query, tag))
+                .max()
+                .unwrap_or(0);
+            // Check username for password items
+            let username_score = if let ItemPayload::Password { username, .. } = &item.payload {
+                crate::fuzzy::fuzzy_score(query, username)
+            } else {
+                0
+            };
+
+            let total_score = score.max(tag_score).max(username_score);
+            if total_score > 0 {
+                scored_items.push((item, total_score));
+            }
+        }
+
+        // Sort by score descending
+        scored_items.sort_by(|a, b| b.1.cmp(&a.1));
+
+        Ok(scored_items)
     }
 
     /// Get credentials matching a URL (for autofill).

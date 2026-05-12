@@ -29,6 +29,140 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
   return false;
 });
 
+// ─── Save Credential Detection ─────────────────────────────────
+
+let submittedCredentials: { url: string; username: string; password: string } | null = null;
+
+function setupSaveDetection() {
+  const forms = document.querySelectorAll("form");
+  forms.forEach((form) => {
+    // Skip if already listening
+    if ((form as any)._hemdal_save_listener) return;
+    (form as any)._hemdal_save_listener = true;
+
+    form.addEventListener("submit", (e) => {
+      const passwordInput = form.querySelector<HTMLInputElement>('input[type="password"]');
+      if (!passwordInput || !passwordInput.value) return;
+
+      const usernameInput = form.querySelector<HTMLInputElement>(
+        'input[type="email"], input[type="text"], input:not([type])'
+      );
+      const username = usernameInput?.value || "";
+      const password = passwordInput.value;
+      const url = window.location.href;
+
+      // Check if this looks like a login/signup form
+      const formText = form.textContent?.toLowerCase() || "";
+      const action = (form.getAttribute("action") || "").toLowerCase();
+      const isAuthForm =
+        formText.includes("sign in") ||
+        formText.includes("sign up") ||
+        formText.includes("log in") ||
+        formText.includes("login") ||
+        formText.includes("register") ||
+        formText.includes("create account") ||
+        action.includes("login") ||
+        action.includes("auth") ||
+        action.includes("signin");
+
+      if (!isAuthForm) return;
+
+      submittedCredentials = { url, username, password };
+      showSaveOverlay(url, username, password);
+    });
+  });
+}
+
+function showSaveOverlay(url: string, username: string, password: string) {
+  // Remove existing save overlay
+  document.querySelectorAll(".hemdal-save-overlay").forEach((el) => el.remove());
+
+  const overlay = document.createElement("div");
+  overlay.className = "hemdal-save-overlay";
+  overlay.style.cssText = `
+    position: fixed;
+    bottom: 16px;
+    right: 16px;
+    z-index: 2147483647;
+    background: #0f172a;
+    border: 1px solid #1e293b;
+    border-radius: 12px;
+    padding: 16px;
+    width: 320px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color: #f1f5f9;
+    animation: hemdal-fade-in 0.2s ease-out;
+  `;
+
+  overlay.innerHTML = `
+    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        <path d="M12 8v4l3 3"/>
+      </svg>
+      <span style="font-weight: 600; font-size: 14px;">Hemdal</span>
+    </div>
+    <p style="font-size: 13px; color: #e2e8f0; margin: 0 0 12px;">
+      Save this password to your vault?
+    </p>
+    <div style="background: #1e293b; border-radius: 8px; padding: 10px 12px; margin-bottom: 12px;">
+      <div style="font-size: 12px; color: #94a3b8; margin-bottom: 2px;">Username</div>
+      <div style="font-size: 13px; color: #f1f5f9; font-weight: 500;">${escapeHtml(username)}</div>
+    </div>
+    <div style="display: flex; gap: 8px;">
+      <button id="hemdal-save-yes" style="flex: 1; padding: 8px 12px; border-radius: 6px; background: #0ea5e9; border: none; color: white; font-size: 13px; font-weight: 500; cursor: pointer;">
+        Save
+      </button>
+      <button id="hemdal-save-no" style="flex: 1; padding: 8px 12px; border-radius: 6px; background: transparent; border: 1px solid #334155; color: #94a3b8; font-size: 13px; cursor: pointer;">
+        Dismiss
+      </button>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  overlay.querySelector("#hemdal-save-yes")?.addEventListener("click", async () => {
+    try {
+      const response = await fetch("http://localhost:19421/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url, username, password }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        overlay.innerHTML = `
+          <div style="text-align: center; padding: 8px;">
+            <div style="color: #4ade80; font-size: 14px; font-weight: 500;">Saved to Hemdal</div>
+          </div>
+        `;
+        setTimeout(() => overlay.remove(), 2000);
+      } else {
+        overlay.innerHTML = `
+          <div style="text-align: center; padding: 8px;">
+            <div style="color: #f87171; font-size: 13px;">Failed to save: ${data.error || "Unknown error"}</div>
+          </div>
+        `;
+        setTimeout(() => overlay.remove(), 3000);
+      }
+    } catch (e) {
+      overlay.innerHTML = `
+        <div style="text-align: center; padding: 8px;">
+          <div style="color: #f87171; font-size: 13px;">Hemdal app not running or vault locked</div>
+        </div>
+      `;
+      setTimeout(() => overlay.remove(), 3000);
+    }
+  });
+
+  overlay.querySelector("#hemdal-save-no")?.addEventListener("click", () => {
+    overlay.remove();
+  });
+
+  // Auto-dismiss after 15 seconds
+  setTimeout(() => overlay.remove(), 15000);
+}
+
 // ─── Credential Filling ──────────────────────────────────────
 
 function fillCredentials(username: string, password: string): boolean {
@@ -399,9 +533,11 @@ function init() {
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", () => {
       setTimeout(checkForAutofill, 500);
+      setupSaveDetection();
     });
   } else {
     setTimeout(checkForAutofill, 500);
+    setupSaveDetection();
   }
 
   // Watch for dynamically added forms
@@ -413,14 +549,15 @@ function init() {
           if (node.querySelector('input[type="password"]') ||
             node.tagName === "INPUT" && (node as HTMLInputElement).type === "password") {
             shouldCheck = true;
-            break;
           }
         }
       }
-      if (shouldCheck) break;
     }
     if (shouldCheck) {
-      setTimeout(checkForAutofill, 500);
+      setTimeout(() => {
+        checkForAutofill();
+        setupSaveDetection();
+      }, 500);
     }
   });
 

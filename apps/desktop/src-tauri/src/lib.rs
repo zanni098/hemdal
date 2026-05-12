@@ -1,11 +1,15 @@
+pub mod biometric;
+pub mod breach;
 pub mod crypto;
 pub mod error;
+pub mod fuzzy;
 pub mod http_api;
 pub mod import;
 pub mod native_messaging;
 pub mod sync;
 pub mod vault;
 
+use std::path::PathBuf;
 use std::sync::{
     Arc, Mutex,
     atomic::{AtomicI64, Ordering},
@@ -24,6 +28,7 @@ pub struct AppState {
     pub vault: Arc<Mutex<Vault>>,
     pub sync_manager: Mutex<SyncManager>,
     pub last_activity: AtomicI64,
+    pub data_dir: PathBuf,
 }
 
 /// Seconds since UNIX epoch.
@@ -413,6 +418,49 @@ fn untrust_device(device_id: String, state: State<AppState>) -> HemdalResult<()>
     sync.untrust_device(&device_id)
 }
 
+// ─── Biometric Commands ────────────────────────────────────────
+
+#[tauri::command]
+fn biometric_available() -> bool {
+    crate::biometric::is_biometric_available()
+}
+
+#[tauri::command]
+fn biometric_enabled(state: State<AppState>) -> HemdalResult<bool> {
+    Ok(crate::biometric::is_biometric_enabled(&state.data_dir))
+}
+
+#[tauri::command]
+fn enable_biometric(state: State<AppState>) -> HemdalResult<()> {
+    touch_activity(&state);
+    let vault = state
+        .vault
+        .lock()
+        .map_err(|_| HemdalError::CryptoError("Failed to lock vault mutex".to_string()))?;
+
+    let vault_key = vault.vault_key()?.clone();
+    crate::biometric::enable_biometric(&vault_key, &state.data_dir)
+}
+
+#[tauri::command]
+fn disable_biometric(state: State<AppState>) -> HemdalResult<()> {
+    crate::biometric::disable_biometric(&state.data_dir)
+}
+
+#[tauri::command]
+async fn unlock_with_biometric(state: State<'_, AppState>) -> HemdalResult<()> {
+    let vault_key = crate::biometric::unlock_with_biometric(&state.data_dir).await?;
+
+    let mut vault = state
+        .vault
+        .lock()
+        .map_err(|_| HemdalError::CryptoError("Failed to lock vault mutex".to_string()))?;
+
+    vault.unlock_with_key(vault_key);
+    touch_activity(&state);
+    Ok(())
+}
+
 // ─── App Builder ───────────────────────────────────────────────
 
 pub fn run() {
@@ -427,7 +475,7 @@ pub fn run() {
 
             std::fs::create_dir_all(&data_dir)?;
 
-            let vault = Vault::open(data_dir).map_err(|e| {
+            let vault = Vault::open(data_dir.clone()).map_err(|e| {
                 eprintln!("Failed to open vault: {}", e);
                 e
             })?;
@@ -462,6 +510,7 @@ pub fn run() {
                 vault: vault_arc.clone(),
                 sync_manager: Mutex::new(sync_manager),
                 last_activity: AtomicI64::new(0),
+                data_dir: data_dir.clone(),
             });
 
             // ─── Auto-Lock Background Task ───────────────────────
@@ -553,12 +602,20 @@ pub fn run() {
             update_item,
             delete_item,
             search_items,
+            fuzzy_search,
             toggle_favorite,
             get_credentials_for_url,
             generate_totp,
             import_items,
             export_items_json,
             export_items_csv,
+            check_breach,
+            save_credential,
+            biometric_available,
+            biometric_enabled,
+            enable_biometric,
+            disable_biometric,
+            unlock_with_biometric,
             sync_status,
             enable_sync,
             disable_sync,
@@ -567,4 +624,69 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+// ─── Fuzzy Search Command ──────────────────────────────────────
+
+#[tauri::command]
+fn fuzzy_search(
+    query: String,
+    state: State<AppState>,
+) -> HemdalResult<Vec<crate::vault::DecryptedVaultItem>> {
+    touch_activity(&state);
+    let vault = state
+        .vault
+        .lock()
+        .map_err(|_| HemdalError::CryptoError("Failed to lock vault mutex".to_string()))?;
+    let scored = vault.fuzzy_search_items(&query)?;
+    Ok(scored.into_iter().map(|(item, _)| item).collect())
+}
+
+// ─── Breach Check Command ────────────────────────────────────
+
+#[derive(Serialize)]
+struct BreachResult {
+    found: bool,
+    count: u64,
+}
+
+#[tauri::command]
+async fn check_breach(password: String) -> HemdalResult<BreachResult> {
+    let count = crate::breach::check_password_breach(&password).await?;
+    Ok(BreachResult {
+        found: count > 0,
+        count,
+    })
+}
+
+// ─── Save Credential from Extension ────────────────────────────
+
+#[tauri::command]
+fn save_credential(
+    url: String,
+    username: String,
+    password: String,
+    state: State<AppState>,
+) -> HemdalResult<crate::vault::VaultItem> {
+    touch_activity(&state);
+    let mut vault = state
+        .vault
+        .lock()
+        .map_err(|_| HemdalError::CryptoError("Failed to lock vault mutex".to_string()))?;
+
+    let name = if url.is_empty() {
+        "New Password".to_string()
+    } else {
+        url.clone()
+    };
+
+    let payload = ItemPayload::Password {
+        username,
+        password,
+        urls: if url.is_empty() { vec![] } else { vec![url] },
+        notes: None,
+        totp: None,
+    };
+
+    vault.add_item("password", &name, Vec::new(), &payload)
 }

@@ -14,6 +14,7 @@ argon2 = "0.5"
 aes-gcm = "0.10"
 rand = "0.8"
 sha2 = "0.10"
+sha1 = "0.10"
 base64 = "0.22"
 
 # Storage
@@ -25,6 +26,7 @@ libp2p = { version = "0.53", features = ["mdns", "noise", "tcp", "yamux"] }
 # HTTP API for browser extension
 axum = "0.7"
 tower-http = { version = "0.5", features = ["cors"] }
+reqwest = { version = "0.12", features = ["json"] }
 
 # CSV parsing
 csv = "1"
