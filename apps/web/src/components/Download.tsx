@@ -1,11 +1,11 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Download, Monitor, Chrome, Github, Terminal } from "lucide-react";
+import { Monitor, Chrome, Github, Terminal, Package } from "lucide-react";
 
 const platforms = [
   {
-    icon: Monitor,
+    icon: Package,
     title: "Windows",
     description: "MSI installer or NSIS setup executable",
     href: "https://github.com/zanni098/hemdal/releases",
@@ -29,18 +29,26 @@ const platforms = [
 
 export default function DownloadSection() {
   return (
-    <section id="download" className="bg-gray-900 py-24">
-      <div className="mx-auto max-w-7xl px-6">
-        <div className="mb-16 text-center">
-          <h2 className="text-3xl font-bold text-white sm:text-4xl">
-            Get Hemdal
-          </h2>
-          <p className="mt-4 text-gray-400 max-w-2xl mx-auto">
-            Available for Windows today. macOS and Linux builds coming soon. The browser extension works on Chrome and Firefox.
-          </p>
-        </div>
+    <section id="download" className="relative bg-[#0a0f1c] py-32 overflow-hidden">
+      <div className="absolute inset-0 bg-grid opacity-30" />
+      <div className="absolute top-0 left-1/2 h-[400px] w-[400px] -translate-x-1/2 rounded-full glow-purple opacity-15 blur-3xl" />
 
-        <div className="grid gap-6 sm:grid-cols-3">
+      <div className="relative z-10 mx-auto max-w-7xl px-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="mb-16 text-center"
+        >
+          <h2 className="text-4xl font-bold tracking-tight text-white sm:text-5xl">
+            Get <span className="text-gradient">Hemdal</span>
+          </h2>
+          <p className="mt-5 max-w-xl mx-auto text-lg text-slate-400">
+            Available for Windows today. macOS and Linux coming soon.
+          </p>
+        </motion.div>
+
+        <div className="grid gap-5 sm:grid-cols-3 max-w-4xl mx-auto">
           {platforms.map((p, i) => (
             <motion.a
               key={p.title}
@@ -51,61 +59,55 @@ export default function DownloadSection() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: i * 0.1 }}
-              className={`flex flex-col items-center rounded-2xl border p-8 text-center transition-colors ${
-                p.primary
-                  ? "border-hemdal-500/30 bg-hemdal-950/20 hover:border-hemdal-500/60"
-                  : "border-gray-800 bg-gray-950 hover:border-gray-700"
-              }`}
+              className={`group relative overflow-hidden rounded-2xl border p-7 text-center transition-all duration-300 hover:scale-[1.02] ${p.primary
+                  ? "border-sky-500/20 bg-sky-500/[0.04] hover:border-sky-500/40"
+                  : "border-slate-700/40 bg-[#0d1117]/60 hover:border-slate-600/60"
+                }`}
             >
               <div
-                className={`mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl ${
-                  p.primary
-                    ? "bg-hemdal-500/10 text-hemdal-400"
-                    : "bg-gray-800 text-gray-400"
-                }`}
+                className={`mx-auto mb-5 inline-flex h-12 w-12 items-center justify-center rounded-xl ${p.primary
+                    ? "bg-sky-500/10 text-sky-400"
+                    : "bg-slate-800/60 text-slate-400"
+                  }`}
               >
-                <p.icon className="h-6 w-6" />
+                <p.icon className="h-5 w-5" />
               </div>
-              <h3 className="text-lg font-semibold text-white">{p.title}</h3>
-              <p className="mt-2 text-sm text-gray-400">{p.description}</p>
+              <h3 className="text-base font-semibold text-white">{p.title}</h3>
+              <p className="mt-2 text-sm text-slate-500">{p.description}</p>
               <div
-                className={`mt-6 inline-flex items-center gap-2 text-sm font-medium ${
-                  p.primary ? "text-hemdal-400" : "text-gray-300"
-                }`}
+                className={`mt-5 text-sm font-medium ${p.primary ? "text-sky-400" : "text-slate-400"
+                  }`}
               >
-                <Download className="h-4 w-4" />
-                {p.primary ? "Download Latest" : "View Instructions"}
+                {p.primary ? "Download Latest →" : "View Instructions →"}
               </div>
+
+              {/* Hover glow */}
+              {p.primary && (
+                <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-sky-500/10 opacity-0 blur-2xl transition-opacity group-hover:opacity-100" />
+              )}
             </motion.a>
           ))}
         </div>
 
-        {/* Quick start code block */}
+        {/* Quick start */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5, delay: 0.3 }}
-          className="mt-12 rounded-2xl border border-gray-800 bg-gray-950 p-6"
+          className="mt-12 mx-auto max-w-3xl"
         >
-          <div className="flex items-center gap-2 mb-4">
-            <Terminal className="h-4 w-4 text-gray-500" />
-            <span className="text-sm text-gray-500 font-medium">Quick Start</span>
+          <div className="rounded-2xl border border-slate-700/30 bg-[#0d1117]/80 overflow-hidden">
+            <div className="flex items-center gap-2 border-b border-slate-700/30 px-5 py-3">
+              <Terminal className="h-4 w-4 text-slate-500" />
+              <span className="text-xs text-slate-500 font-mono">Quick Start</span>
+            </div>
+            <pre className="overflow-x-auto p-5 text-sm text-slate-300 font-mono leading-relaxed">
+              <code>{`git clone https://github.com/zanni098/hemdal.git
+cd hemdal && pnpm install
+cd apps/desktop && pnpm tauri:build`}</code>
+            </pre>
           </div>
-          <pre className="overflow-x-auto text-sm text-gray-300 font-mono">
-            <code>{`# Clone the repository
-git clone https://github.com/zanni098/hemdal.git
-cd hemdal
-
-# Install dependencies
-pnpm install
-
-# Build the desktop app
-cd apps/desktop && pnpm tauri:build
-
-# Build the browser extension
-cd apps/extension && pnpm build`}</code>
-          </pre>
         </motion.div>
       </div>
     </section>

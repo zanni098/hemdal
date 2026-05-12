@@ -1,118 +1,142 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Lock, Key, Database, EyeOff } from "lucide-react";
-
-const steps = [
-  {
-    step: "01",
-    icon: Lock,
-    title: "Master Password",
-    description:
-      "You create a strong master password. It is never stored anywhere. Not on disk, not in memory for long, and never sent to any server.",
-  },
-  {
-    step: "02",
-    icon: Key,
-    title: "Argon2id Derivation",
-    description:
-      "Your master password is hashed with Argon2id, the winner of the Password Hashing Competition. This produces a cryptographically strong master key.",
-  },
-  {
-    step: "03",
-    icon: Database,
-    title: "Vault Key Encryption",
-    description:
-      "A random 256-bit vault key encrypts all your items. That vault key itself is encrypted by your master key using AES-256-GCM.",
-  },
-  {
-    step: "04",
-    icon: EyeOff,
-    title: "Secure Memory",
-    description:
-      "All keys use secure memory containers that are automatically zeroed from RAM when no longer needed. Keys never swap to disk.",
-  },
-];
 
 export default function Security() {
   return (
-    <section id="security" className="bg-gray-950 py-24">
-      <div className="mx-auto max-w-7xl px-6">
-        <div className="mb-16 text-center">
-          <h2 className="text-3xl font-bold text-white sm:text-4xl">
-            Security by design
-          </h2>
-          <p className="mt-4 text-gray-400 max-w-2xl mx-auto">
-            We built Hemdal with a zero-trust architecture. Every layer is hardened so your secrets stay yours.
-          </p>
-        </div>
+    <section id="security" className="relative bg-[#0a0f1c] py-32 overflow-hidden">
+      <div className="absolute inset-0 bg-grid opacity-30" />
+      <div className="absolute top-1/2 right-0 h-[500px] w-[500px] -translate-y-1/2 rounded-full glow-purple opacity-20 blur-3xl" />
 
-        <div className="grid gap-8 md:grid-cols-2">
-          {steps.map((s, i) => (
-            <motion.div
-              key={s.step}
-              initial={{ opacity: 0, x: i % 2 === 0 ? -30 : 30 }}
-              whileInView={{ opacity: 1, x: 0 }}
+      <div className="relative z-10 mx-auto max-w-7xl px-6">
+        <div className="grid lg:grid-cols-2 gap-16 items-center">
+          {/* Left: Text content */}
+          <div>
+            <motion.span
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: i * 0.1 }}
-              className="flex gap-5 rounded-2xl border border-gray-800 bg-gray-900/50 p-6"
+              className="inline-block text-xs font-bold uppercase tracking-[0.2em] text-sky-400 mb-4"
             >
-              <div className="flex flex-col items-center">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-hemdal-500/10 text-hemdal-400">
-                  <s.icon className="h-5 w-5" />
-                </div>
-                <div className="mt-3 h-full w-px bg-gradient-to-b from-hemdal-500/20 to-transparent" />
-              </div>
-              <div>
-                <div className="text-xs font-bold text-hemdal-500 uppercase tracking-wider">
-                  Step {s.step}
-                </div>
-                <h3 className="mt-1 text-lg font-semibold text-white">{s.title}</h3>
-                <p className="mt-2 text-sm text-gray-400 leading-relaxed">
-                  {s.description}
-                </p>
-              </div>
-            </motion.div>
-          ))}
-        </div>
+              Security
+            </motion.span>
+            <motion.h2
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.1 }}
+              className="text-4xl font-bold tracking-tight text-white sm:text-5xl"
+            >
+              Security by <span className="text-gradient">design</span>
+            </motion.h2>
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.2 }}
+              className="mt-5 text-lg text-slate-400 leading-relaxed"
+            >
+              We built Hemdal with a zero-trust architecture. Every layer is
+              hardened so your secrets stay yours. No backdoors, no cloud
+              storage of plaintext.
+            </motion.p>
 
-        {/* Architecture diagram box */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="mt-12 rounded-2xl border border-gray-800 bg-gray-900/50 p-8"
-        >
-          <h3 className="text-center text-lg font-semibold text-white mb-6">
-            Encryption Flow
-          </h3>
-          <div className="flex flex-col md:flex-row items-center justify-center gap-4 text-sm">
-            <div className="rounded-lg border border-gray-700 bg-gray-950 px-5 py-3 text-gray-300">
-              Master Password
-            </div>
-            <span className="text-gray-600 hidden md:inline">&rarr;</span>
-            <span className="text-gray-600 md:hidden">&darr;</span>
-            <div className="rounded-lg border border-hemdal-500/30 bg-hemdal-950/30 px-5 py-3 text-hemdal-300">
-              Argon2id
-            </div>
-            <span className="text-gray-600 hidden md:inline">&rarr;</span>
-            <span className="text-gray-600 md:hidden">&darr;</span>
-            <div className="rounded-lg border border-gray-700 bg-gray-950 px-5 py-3 text-gray-300">
-              Master Key
-            </div>
-            <span className="text-gray-600 hidden md:inline">&rarr;</span>
-            <span className="text-gray-600 md:hidden">&darr;</span>
-            <div className="rounded-lg border border-hemdal-500/30 bg-hemdal-950/30 px-5 py-3 text-hemdal-300">
-              AES-256-GCM
-            </div>
-            <span className="text-gray-600 hidden md:inline">&rarr;</span>
-            <span className="text-gray-600 md:hidden">&darr;</span>
-            <div className="rounded-lg border border-gray-700 bg-gray-950 px-5 py-3 text-gray-300">
-              Vault Items
-            </div>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.3 }}
+              className="mt-10 space-y-6"
+            >
+              {[
+                {
+                  num: "01",
+                  title: "Argon2id Key Derivation",
+                  desc: "Your master password is hashed with Argon2id, the winner of the Password Hashing Competition.",
+                },
+                {
+                  num: "02",
+                  title: "AES-256-GCM Vault Encryption",
+                  desc: "A random 256-bit vault key encrypts all items. The vault key itself is encrypted by your master key.",
+                },
+                {
+                  num: "03",
+                  title: "Secure Memory with Zeroize",
+                  desc: "All keys use secure memory containers automatically zeroed from RAM when no longer needed.",
+                },
+              ].map((item) => (
+                <div key={item.num} className="flex gap-4 group">
+                  <span className="text-xs font-mono text-sky-500/60 pt-1">
+                    {item.num}
+                  </span>
+                  <div>
+                    <h3 className="text-[15px] font-semibold text-white group-hover:text-sky-300 transition-colors">
+                      {item.title}
+                    </h3>
+                    <p className="mt-1 text-sm text-slate-500 leading-relaxed">
+                      {item.desc}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </motion.div>
           </div>
-        </motion.div>
+
+          {/* Right: Visual diagram */}
+          <motion.div
+            initial={{ opacity: 0, x: 40 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.7 }}
+            className="relative"
+          >
+            <div className="relative rounded-2xl border border-slate-700/40 bg-[#0d1117]/80 p-8 backdrop-blur-sm">
+              <div className="space-y-4">
+                {/* Flow diagram */}
+                {[
+                  { label: "Master Password", active: true },
+                  { label: "Argon2id Derivation", active: true },
+                  { label: "Master Key", active: true },
+                  { label: "AES-256-GCM", active: true },
+                  { label: "Encrypted Vault", active: false },
+                ].map((step, i, arr) => (
+                  <div key={step.label} className="relative">
+                    <div
+                      className={`flex items-center gap-4 rounded-xl border px-5 py-4 ${step.active
+                          ? "border-sky-500/20 bg-sky-500/[0.06]"
+                          : "border-slate-700/30 bg-slate-800/20"
+                        }`}
+                    >
+                      <div
+                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold ${step.active
+                            ? "bg-sky-500/15 text-sky-400"
+                            : "bg-slate-700/30 text-slate-500"
+                          }`}
+                      >
+                        {i + 1}
+                      </div>
+                      <span
+                        className={`text-sm font-medium ${step.active ? "text-white" : "text-slate-400"
+                          }`}
+                      >
+                        {step.label}
+                      </span>
+                    </div>
+                    {i < arr.length - 1 && (
+                      <div className="flex justify-center py-2">
+                        <div className="h-4 w-px bg-gradient-to-b from-sky-500/40 to-slate-700/30" />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Corner accent */}
+              <div className="absolute -top-px -left-px h-16 w-16 rounded-tl-2xl border-t border-l border-sky-500/20" />
+              <div className="absolute -bottom-px -right-px h-16 w-16 rounded-br-2xl border-b border-r border-sky-500/20" />
+            </div>
+          </motion.div>
+        </div>
       </div>
     </section>
   );

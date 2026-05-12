@@ -7,47 +7,62 @@ const cases = [
   {
     icon: Code,
     title: "Developers",
-    description:
-      "Store API keys, environment variables, SSH keys, and database credentials securely. Never commit secrets to Git again.",
-    bullets: ["API Keys & Tokens", "Environment Variables", "SSH Keys", "Database URLs"],
+    description: "Store API keys, env vars, SSH keys, and database credentials securely. Never commit secrets to Git.",
+    items: ["API Keys", "Env Variables", "SSH Keys", "Database URLs"],
+    color: "text-emerald-400",
+    bg: "from-emerald-500/10 to-teal-500/10",
+    border: "border-emerald-500/10",
   },
   {
     icon: Users,
     title: "Personal Use",
-    description:
-      "Manage all your personal passwords, secure notes, and credit cards in one encrypted vault that only you can unlock.",
-    bullets: ["Passwords & Logins", "Secure Notes", "Credit Cards", "2FA Secrets"],
+    description: "Manage all your personal passwords, secure notes, and credit cards in one encrypted vault.",
+    items: ["Passwords", "Secure Notes", "Credit Cards", "2FA Secrets"],
+    color: "text-sky-400",
+    bg: "from-sky-500/10 to-blue-500/10",
+    border: "border-sky-500/10",
   },
   {
     icon: Briefcase,
     title: "Teams",
-    description:
-      "Share credentials without sharing plaintext. P2P sync keeps team secrets on your local network, not in the cloud.",
-    bullets: ["Shared Credentials", "P2P Sync", "No Cloud Required", "Audit Trail Ready"],
+    description: "Share credentials without sharing plaintext. P2P sync keeps secrets on your local network.",
+    items: ["Shared Vaults", "P2P Sync", "No Cloud", "Audit Ready"],
+    color: "text-violet-400",
+    bg: "from-violet-500/10 to-purple-500/10",
+    border: "border-violet-500/10",
   },
   {
     icon: Globe,
     title: "Freelancers",
-    description:
-      "Juggling multiple client accounts? Organize credentials by project with tags, favorites, and fast fuzzy search.",
-    bullets: ["Project Organization", "Tags & Favorites", "Fast Search", "Client Separation"],
+    description: "Juggling multiple client accounts? Organize credentials by project with tags and fast search.",
+    items: ["Project Tags", "Favorites", "Fast Search", "Client Separation"],
+    color: "text-amber-400",
+    bg: "from-amber-500/10 to-orange-500/10",
+    border: "border-amber-500/10",
   },
 ];
 
 export default function UseCases() {
   return (
-    <section id="use-cases" className="bg-gray-900 py-24">
-      <div className="mx-auto max-w-7xl px-6">
-        <div className="mb-16 text-center">
-          <h2 className="text-3xl font-bold text-white sm:text-4xl">
-            Built for how you work
-          </h2>
-          <p className="mt-4 text-gray-400 max-w-2xl mx-auto">
-            Whether you are a developer, a team, or just someone who values privacy, Hemdal fits your workflow.
-          </p>
-        </div>
+    <section className="relative bg-[#0a0f1c] py-32 overflow-hidden">
+      <div className="absolute bottom-0 left-0 h-[400px] w-[400px] rounded-full glow-cyan opacity-20 blur-3xl" />
 
-        <div className="grid gap-8 lg:grid-cols-2">
+      <div className="relative z-10 mx-auto max-w-7xl px-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="mb-20 text-center"
+        >
+          <h2 className="text-4xl font-bold tracking-tight text-white sm:text-5xl">
+            Built for how <span className="text-gradient">you work</span>
+          </h2>
+          <p className="mt-5 max-w-xl mx-auto text-lg text-slate-400">
+            Whether you are a developer, a team, or just someone who values privacy.
+          </p>
+        </motion.div>
+
+        <div className="grid gap-5 md:grid-cols-2">
           {cases.map((c, i) => (
             <motion.div
               key={c.title}
@@ -55,29 +70,33 @@ export default function UseCases() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: i * 0.1 }}
-              className="rounded-2xl border border-gray-800 bg-gray-950 p-8"
+              className={`group relative overflow-hidden rounded-2xl border ${c.border} bg-gradient-to-br ${c.bg} p-[1px] transition-all duration-300 hover:scale-[1.01]`}
             >
-              <div className="flex items-start gap-4">
-                <div className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-hemdal-500/10 text-hemdal-400">
-                  <c.icon className="h-6 w-6" />
+              <div className="relative h-full rounded-[15px] bg-[#0d1117]/95 p-8">
+                <div className="flex items-start gap-5">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-slate-800/60 border border-slate-700/30">
+                    <c.icon className={`h-6 w-6 ${c.color}`} />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-xl font-semibold text-white">{c.title}</h3>
+                    <p className="mt-2 text-sm text-slate-400 leading-relaxed">
+                      {c.description}
+                    </p>
+                    <div className="mt-5 flex flex-wrap gap-2">
+                      {c.items.map((item) => (
+                        <span
+                          key={item}
+                          className="rounded-full border border-slate-700/40 bg-slate-800/40 px-3 py-1 text-xs text-slate-400"
+                        >
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-xl font-semibold text-white">{c.title}</h3>
-                  <p className="mt-2 text-gray-400 text-sm leading-relaxed">
-                    {c.description}
-                  </p>
-                  <ul className="mt-4 grid grid-cols-2 gap-2">
-                    {c.bullets.map((b) => (
-                      <li
-                        key={b}
-                        className="flex items-center gap-2 text-sm text-gray-300"
-                      >
-                        <span className="h-1.5 w-1.5 rounded-full bg-hemdal-400" />
-                        {b}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+
+                {/* Hover glow */}
+                <div className={`absolute -right-12 -top-12 h-32 w-32 rounded-full bg-gradient-to-br ${c.bg} opacity-0 blur-2xl transition-opacity duration-500 group-hover:opacity-50`} />
               </div>
             </motion.div>
           ))}
