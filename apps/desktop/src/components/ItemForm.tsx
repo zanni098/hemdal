@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { ArrowLeft, Plus, X } from "lucide-react";
+import PasswordGenerator from "./PasswordGenerator";
 
 const typeConfig: Record<
   string,
@@ -215,7 +216,12 @@ export default function ItemForm() {
               {field.label}
               {field.required && <span className="text-red-400 ml-1">*</span>}
             </label>
-            {field.type === "textarea" ? (
+            {type === "password" && field.name === "password" ? (
+              <PasswordGenerator
+                value={formData[field.name] || ""}
+                onChange={(val) => setFormData({ ...formData, [field.name]: val })}
+              />
+            ) : field.type === "textarea" ? (
               <textarea
                 value={formData[field.name] || ""}
                 onChange={(e) =>

@@ -5,7 +5,11 @@ pub mod native_messaging;
 pub mod sync;
 pub mod vault;
 
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    Arc, Mutex,
+    atomic::{AtomicI64, Ordering},
+};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 use tauri::{Emitter, Manager, State};
@@ -18,7 +22,24 @@ use crate::vault::{ItemPayload, Vault, VaultConfig};
 pub struct AppState {
     pub vault: Arc<Mutex<Vault>>,
     pub sync_manager: Mutex<SyncManager>,
+    pub last_activity: AtomicI64,
 }
+
+/// Seconds since UNIX epoch.
+fn now_secs() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64
+}
+
+/// Updates the activity timestamp.
+fn touch_activity(state: &State<AppState>) {
+    state.last_activity.store(now_secs(), Ordering::Relaxed);
+}
+
+/// Auto-lock threshold in seconds (10 minutes).
+const AUTO_LOCK_THRESHOLD: i64 = 600;
 
 #[derive(Serialize)]
 struct VaultStatus {
@@ -64,6 +85,7 @@ fn initialize_vault(password: String, state: State<AppState>) -> HemdalResult<Va
 
 #[tauri::command]
 fn unlock_vault(password: String, state: State<AppState>) -> HemdalResult<()> {
+    touch_activity(&state);
     let mut vault = state
         .vault
         .lock()
@@ -96,6 +118,7 @@ fn create_item(
     request: CreateItemRequest,
     state: State<AppState>,
 ) -> HemdalResult<crate::vault::VaultItem> {
+    touch_activity(&state);
     let mut vault = state
         .vault
         .lock()
@@ -113,6 +136,7 @@ fn get_items(
     item_type: Option<String>,
     state: State<AppState>,
 ) -> HemdalResult<Vec<crate::vault::DecryptedVaultItem>> {
+    touch_activity(&state);
     let vault = state
         .vault
         .lock()
@@ -123,6 +147,7 @@ fn get_items(
 
 #[tauri::command]
 fn get_item(id: String, state: State<AppState>) -> HemdalResult<crate::vault::DecryptedVaultItem> {
+    touch_activity(&state);
     let vault = state
         .vault
         .lock()
@@ -138,6 +163,7 @@ fn update_item(
     payload: Option<ItemPayload>,
     state: State<AppState>,
 ) -> HemdalResult<crate::vault::DecryptedVaultItem> {
+    touch_activity(&state);
     let mut vault = state
         .vault
         .lock()
@@ -147,6 +173,7 @@ fn update_item(
 
 #[tauri::command]
 fn delete_item(id: String, state: State<AppState>) -> HemdalResult<()> {
+    touch_activity(&state);
     let mut vault = state
         .vault
         .lock()
@@ -159,6 +186,7 @@ fn search_items(
     query: String,
     state: State<AppState>,
 ) -> HemdalResult<Vec<crate::vault::DecryptedVaultItem>> {
+    touch_activity(&state);
     let vault = state
         .vault
         .lock()
@@ -168,6 +196,7 @@ fn search_items(
 
 #[tauri::command]
 fn toggle_favorite(id: String, state: State<AppState>) -> HemdalResult<()> {
+    touch_activity(&state);
     let mut vault = state
         .vault
         .lock()
@@ -191,6 +220,7 @@ fn get_credentials_for_url(
     url: String,
     state: State<AppState>,
 ) -> HemdalResult<Vec<CredentialMatch>> {
+    touch_activity(&state);
     let vault = state
         .vault
         .lock()
@@ -322,9 +352,40 @@ pub fn run() {
                 }
             });
 
+            let app_handle = app.app_handle().clone();
+
             app.manage(AppState {
                 vault: vault_arc.clone(),
                 sync_manager: Mutex::new(sync_manager),
+                last_activity: AtomicI64::new(0),
+            });
+
+            // ─── Auto-Lock Background Task ───────────────────────
+            tauri::async_runtime::spawn(async move {
+                let mut interval = tokio::time::interval(Duration::from_secs(10));
+                loop {
+                    interval.tick().await;
+
+                    if let Some(state) = app_handle.try_state::<AppState>() {
+                        let last = state.last_activity.load(Ordering::Relaxed);
+                        if last == 0 {
+                            continue;
+                        }
+
+                        let elapsed = now_secs() - last;
+                        if elapsed >= AUTO_LOCK_THRESHOLD {
+                            if let Ok(mut vault) = state.vault.lock() {
+                                if vault.is_unlocked() {
+                                    vault.lock();
+                                    println!("Vault auto-locked after {}s idle", elapsed);
+                                    if let Some(window) = app_handle.get_webview_window("main") {
+                                        let _ = window.emit("vault-locked", ());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             });
 
             // ─── System Tray ─────────────────────────────────────
