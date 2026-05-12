@@ -1,0 +1,57 @@
+[package]
+name = "hemdal-desktop"
+version = "0.1.0"
+description = "Hemdal - Secure cross-platform password and secret manager"
+authors = ["Hemdal Team"]
+edition = "2021"
+
+[lib]
+name = "hemdal_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "hemdal-desktop"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { workspace = true }
+
+[dependencies]
+tauri = { workspace = true }
+tauri-plugin-shell = "2"
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+
+# Crypto & Security
+argon2 = { workspace = true }
+aes-gcm = { workspace = true }
+rand = { workspace = true }
+sha2 = { workspace = true }
+base64 = { workspace = true }
+zeroize = "1"
+
+# Storage
+rusqlite = { workspace = true }
+dirs = "5"
+
+# P2P Networking
+libp2p = { workspace = true }
+
+# HTTP API for browser extension
+axum = { workspace = true }
+tower-http = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+# UUID
+uuid = { version = "1", features = ["v4", "serde"] }
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
