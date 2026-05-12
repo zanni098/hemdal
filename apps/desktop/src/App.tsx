@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Routes, Route } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import VaultUnlock from "./components/VaultUnlock";
 import SetupVault from "./components/SetupVault";
 import VaultDashboard from "./components/VaultDashboard";
@@ -33,6 +34,15 @@ function App() {
 
   useEffect(() => {
     refreshStatus();
+
+    // Listen for tray "Lock Vault" action
+    const unlisten = listen("vault-locked", () => {
+      refreshStatus();
+    });
+
+    return () => {
+      unlisten.then((f) => f());
+    };
   }, []);
 
   if (loading) {

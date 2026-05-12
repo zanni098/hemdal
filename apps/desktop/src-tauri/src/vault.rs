@@ -92,7 +92,7 @@ pub struct Vault {
     conn: Connection,
     vault_key: Option<SecureKey>,
     config: Option<VaultConfig>,
-    db_path: PathBuf,
+    _db_path: PathBuf,
 }
 
 impl Vault {
@@ -105,7 +105,7 @@ impl Vault {
             conn,
             vault_key: None,
             config: None,
-            db_path,
+            _db_path: db_path,
         };
 
         vault.init_schema()?;

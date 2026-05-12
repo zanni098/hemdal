@@ -8,7 +8,7 @@ pub mod vault;
 use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
-use tauri::{Manager, State};
+use tauri::{Emitter, Manager, State};
 
 use crate::error::{HemdalError, HemdalResult};
 use crate::sync::SyncManager;
@@ -299,8 +299,6 @@ pub fn run() {
             })?;
 
             let device_id = if vault.is_initialized() {
-                // We don't have direct access to config here due to privacy,
-                // but for the sync manager we can generate one if needed.
                 crate::crypto::generate_device_id()
             } else {
                 crate::crypto::generate_device_id()
@@ -325,11 +323,59 @@ pub fn run() {
             });
 
             app.manage(AppState {
-                vault: vault_arc,
+                vault: vault_arc.clone(),
                 sync_manager: Mutex::new(sync_manager),
             });
 
+            // ─── System Tray ─────────────────────────────────────
+            let show_i =
+                tauri::menu::MenuItem::with_id(app, "show", "Show Vault", true, None::<&str>)?;
+            let lock_i =
+                tauri::menu::MenuItem::with_id(app, "lock", "Lock Vault", true, None::<&str>)?;
+            let quit_i = tauri::menu::MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
+
+            let menu = tauri::menu::Menu::with_items(app, &[&show_i, &lock_i, &quit_i])?;
+
+            let _tray = tauri::tray::TrayIconBuilder::new()
+                .icon(app.default_window_icon().unwrap().clone())
+                .menu(&menu)
+                .on_menu_event(move |app, event| match event.id.as_ref() {
+                    "show" => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                    "lock" => {
+                        if let Ok(mut state) = app.state::<AppState>().vault.lock() {
+                            state.lock();
+                        }
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.emit("vault-locked", ());
+                        }
+                    }
+                    "quit" => {
+                        app.exit(0);
+                    }
+                    _ => {}
+                })
+                .on_tray_icon_event(|tray, event| {
+                    if let tauri::tray::TrayIconEvent::Click { .. } = event {
+                        if let Some(window) = tray.app_handle().get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                })
+                .build(app)?;
+
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                window.hide().unwrap();
+                api.prevent_close();
+            }
         })
         .invoke_handler(tauri::generate_handler![
             vault_status,

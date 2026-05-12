@@ -1,6 +1,6 @@
 /// <reference types="chrome"/>
 
-import type { DetectedForm, FormField, AutofillCredential } from "@hemdal/types";
+import type { DetectedForm, FormField } from "@hemdal/types";
 
 interface CredentialData {
   id: string;
@@ -8,6 +8,117 @@ interface CredentialData {
   username: string;
   password: string;
   urls: string[];
+}
+
+// ─── Constants ───────────────────────────────────────────────
+
+const OVERLAY_ID = "hemdal-autofill-overlay";
+const OVERLAY_DATA_ATTR = "data-hemdal-form-id";
+let currentOverlay: HTMLDivElement | null = null;
+let lastProcessedUrl = "";
+
+// ─── Message Listener (from popup/background) ──────────────
+
+chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
+  if (request.type === "FILL_CREDENTIALS") {
+    const { username, password } = request.data;
+    const result = fillCredentials(username, password);
+    sendResponse({ success: result });
+    return true;
+  }
+  return false;
+});
+
+// ─── Credential Filling ──────────────────────────────────────
+
+function fillCredentials(username: string, password: string): boolean {
+  // Find the best username input
+  const usernameInput = findUsernameInput();
+  const passwordInput = findPasswordInput();
+
+  if (!passwordInput) {
+    console.log("Hemdal: No password input found");
+    return false;
+  }
+
+  if (usernameInput) {
+    setInputValue(usernameInput, username);
+  }
+
+  setInputValue(passwordInput, password);
+
+  // Try to auto-submit the form after a short delay
+  setTimeout(() => {
+    const form = passwordInput.closest("form");
+    if (form) {
+      const submitBtn = form.querySelector<HTMLElement>(
+        'button[type="submit"], input[type="submit"], button[aria-label*="sign" i], button[aria-label*="log" i]'
+      );
+      if (submitBtn) {
+        (submitBtn as HTMLButtonElement).click();
+      }
+    }
+  }, 300);
+
+  return true;
+}
+
+function findUsernameInput(): HTMLInputElement | null {
+  // Try selectors in order of specificity
+  const selectors = [
+    'input[type="email"]',
+    'input[autocomplete="username"]',
+    'input[autocomplete="email"]',
+    'input[name*="user" i]',
+    'input[name*="email" i]',
+    'input[id*="user" i]',
+    'input[id*="email" i]',
+    'input[placeholder*="user" i]',
+    'input[placeholder*="email" i]',
+    'input[aria-label*="user" i]',
+    'input[aria-label*="email" i]',
+    'input[type="text"]',
+  ];
+
+  for (const selector of selectors) {
+    const inputs = document.querySelectorAll<HTMLInputElement>(selector);
+    for (const input of inputs) {
+      // Skip hidden, disabled, or readonly inputs
+      if (input.offsetParent === null) continue;
+      if (input.disabled) continue;
+      if (input.readOnly) continue;
+      // Make sure it's in the same form as a password field, or near one
+      const form = input.closest("form");
+      if (form && form.querySelector('input[type="password"]')) {
+        return input;
+      }
+      // Also accept inputs that are just before a password field
+      const nextPw = input.parentElement?.querySelector('input[type="password"]');
+      if (nextPw) return input;
+    }
+  }
+
+  return null;
+}
+
+function findPasswordInput(): HTMLInputElement | null {
+  const inputs = document.querySelectorAll<HTMLInputElement>('input[type="password"]');
+  for (const input of inputs) {
+    if (input.offsetParent === null) continue;
+    if (input.disabled) continue;
+    return input;
+  }
+  return null;
+}
+
+function setInputValue(input: HTMLInputElement, value: string) {
+  input.focus();
+  input.value = value;
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+  input.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true }));
+  input.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true }));
+  input.blur();
 }
 
 // ─── Form Detection ──────────────────────────────────────────
@@ -19,6 +130,10 @@ function detectForms(): DetectedForm[] {
   );
 
   passwordInputs.forEach((passwordInput) => {
+    // Skip hidden password fields (commonly used by password managers)
+    if (passwordInput.offsetParent === null) return;
+    if (passwordInput.disabled) return;
+
     const form = passwordInput.closest("form");
     if (!form) return;
 
@@ -37,6 +152,7 @@ function detectForms(): DetectedForm[] {
         /user(name)?|email|login/i.test(input.name || "") ||
         /user(name)?|email|login/i.test(input.id || "") ||
         /user(name)?|email|login/i.test(input.placeholder || "") ||
+        /user(name)?|email|login/i.test(input.getAttribute("aria-label") || "") ||
         input.autocomplete?.includes("username") ||
         input.autocomplete?.includes("email")
       );
@@ -47,15 +163,15 @@ function detectForms(): DetectedForm[] {
       const fieldType: FormField["type"] = isPassword
         ? "password"
         : input.autocomplete?.includes("email")
-        ? "email"
-        : isUsername
-        ? "username"
-        : "text";
+          ? "email"
+          : isUsername
+            ? "username"
+            : "text";
 
       fields.push({
         type: fieldType,
         selector: getUniqueSelector(input),
-        name: input.name,
+        name: input.name || undefined,
         id: input.id || undefined,
         placeholder: input.placeholder || undefined,
         label: getFieldLabel(input),
@@ -89,7 +205,6 @@ function getUniqueSelector(el: Element): string {
     }
   }
 
-  // Generate path
   const path: string[] = [];
   let current: Element | null = el;
   while (current && current !== document.body) {
@@ -106,7 +221,6 @@ function getFieldLabel(input: HTMLInputElement): string | undefined {
   if (input.labels && input.labels.length > 0) {
     return input.labels[0].textContent?.trim();
   }
-  // Try to find label by for attribute
   if (input.id) {
     const label = document.querySelector(`label[for="${input.id}"]`);
     if (label) return label.textContent?.trim();
@@ -114,14 +228,14 @@ function getFieldLabel(input: HTMLInputElement): string | undefined {
   return undefined;
 }
 
-// ─── Autofill UI ─────────────────────────────────────────────
+// ─── Autofill Overlay ────────────────────────────────────────
 
 function createAutofillOverlay(credentials: CredentialData[]) {
-  // Remove existing overlays
-  document.querySelectorAll(".hemdal-autofill-overlay").forEach((el) => el.remove());
+  // Remove existing overlay
+  removeOverlay();
 
   const overlay = document.createElement("div");
-  overlay.className = "hemdal-autofill-overlay";
+  overlay.id = OVERLAY_ID;
   overlay.style.cssText = `
     position: fixed;
     top: 16px;
@@ -133,9 +247,24 @@ function createAutofillOverlay(credentials: CredentialData[]) {
     padding: 16px;
     width: 320px;
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     color: #f1f5f9;
+    animation: hemdal-fade-in 0.2s ease-out;
   `;
+
+  // Add animation styles
+  const style = document.createElement("style");
+  style.textContent = `
+    @keyframes hemdal-fade-in {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes hemdal-fade-out {
+      from { opacity: 1; transform: translateY(0); }
+      to { opacity: 0; transform: translateY(-8px); }
+    }
+  `;
+  document.head.appendChild(style);
 
   const header = document.createElement("div");
   header.style.cssText = `
@@ -168,17 +297,25 @@ function createAutofillOverlay(credentials: CredentialData[]) {
       cursor: pointer;
       margin-bottom: 8px;
       font-size: 13px;
-      transition: background 0.15s;
+      transition: background 0.15s, border-color 0.15s;
     `;
     item.innerHTML = `
-      <div style="font-weight: 500; margin-bottom: 2px;">${cred.name}</div>
-      <div style="color: #94a3b8; font-size: 12px;">${cred.username}</div>
+      <div style="font-weight: 500; margin-bottom: 2px;">${escapeHtml(cred.name)}</div>
+      <div style="color: #94a3b8; font-size: 12px;">${escapeHtml(cred.username)}</div>
     `;
-    item.onmouseenter = () => (item.style.background = "#334155");
-    item.onmouseleave = () => (item.style.background = "#1e293b");
+    item.onmouseenter = () => {
+      item.style.background = "#334155";
+      item.style.borderColor = "#475569";
+    };
+    item.onmouseleave = () => {
+      item.style.background = "#1e293b";
+      item.style.borderColor = "#334155";
+    };
     item.onclick = () => {
-      fillCredentials(cred);
-      overlay.remove();
+      const success = fillCredentials(cred.username, cred.password);
+      if (success) {
+        removeOverlay();
+      }
     };
     overlay.appendChild(item);
   });
@@ -196,39 +333,41 @@ function createAutofillOverlay(credentials: CredentialData[]) {
     margin-top: 4px;
   `;
   closeBtn.textContent = "Dismiss";
-  closeBtn.onclick = () => overlay.remove();
+  closeBtn.onclick = () => removeOverlay();
   overlay.appendChild(closeBtn);
 
   document.body.appendChild(overlay);
+  currentOverlay = overlay;
 
   // Auto-dismiss after 30 seconds
-  setTimeout(() => overlay.remove(), 30000);
+  setTimeout(() => removeOverlay(), 30000);
 }
 
-function fillCredentials(cred: CredentialData) {
-  const usernameInput = document.querySelector<HTMLInputElement>(
-    'input[type="email"], input[type="text"], input:not([type])'
-  );
-  const passwordInput = document.querySelector<HTMLInputElement>(
-    'input[type="password"]'
-  );
-
-  if (usernameInput) {
-    usernameInput.value = cred.username;
-    usernameInput.dispatchEvent(new Event("input", { bubbles: true }));
-    usernameInput.dispatchEvent(new Event("change", { bubbles: true }));
-  }
-
-  if (passwordInput) {
-    passwordInput.value = cred.password;
-    passwordInput.dispatchEvent(new Event("input", { bubbles: true }));
-    passwordInput.dispatchEvent(new Event("change", { bubbles: true }));
+function removeOverlay() {
+  if (currentOverlay) {
+    currentOverlay.style.animation = "hemdal-fade-out 0.2s ease-in forwards";
+    setTimeout(() => {
+      currentOverlay?.remove();
+      currentOverlay = null;
+    }, 200);
   }
 }
 
-// ─── Main Logic ──────────────────────────────────────────────
+function escapeHtml(text: string): string {
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// ─── Main Autofill Logic ─────────────────────────────────────
 
 function checkForAutofill() {
+  const url = window.location.href;
+  if (url === lastProcessedUrl && currentOverlay) {
+    return; // Already checked this URL and showing overlay
+  }
+  lastProcessedUrl = url;
+
   const forms = detectForms();
   if (forms.length === 0) return;
 
@@ -239,7 +378,7 @@ function checkForAutofill() {
   chrome.runtime.sendMessage(
     {
       type: "GET_CREDENTIALS",
-      url: window.location.href,
+      url: url,
     },
     (response) => {
       if (chrome.runtime.lastError) {
@@ -254,33 +393,50 @@ function checkForAutofill() {
   );
 }
 
-// Check on page load and URL changes
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", checkForAutofill);
-} else {
-  checkForAutofill();
+// ─── Initialization ──────────────────────────────────────────
+
+function init() {
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => {
+      setTimeout(checkForAutofill, 500);
+    });
+  } else {
+    setTimeout(checkForAutofill, 500);
+  }
+
+  // Watch for dynamically added forms
+  const observer = new MutationObserver((mutations) => {
+    let shouldCheck = false;
+    for (const mutation of mutations) {
+      for (const node of mutation.addedNodes) {
+        if (node instanceof HTMLElement) {
+          if (node.querySelector('input[type="password"]') ||
+            node.tagName === "INPUT" && (node as HTMLInputElement).type === "password") {
+            shouldCheck = true;
+            break;
+          }
+        }
+      }
+      if (shouldCheck) break;
+    }
+    if (shouldCheck) {
+      setTimeout(checkForAutofill, 500);
+    }
+  });
+
+  observer.observe(document.documentElement, { childList: true, subtree: true });
+
+  // Watch for URL changes (SPA navigation)
+  let lastUrl = location.href;
+  const urlObserver = new MutationObserver(() => {
+    const url = location.href;
+    if (url !== lastUrl) {
+      lastUrl = url;
+      lastProcessedUrl = ""; // Reset so we check again
+      setTimeout(checkForAutofill, 1000);
+    }
+  });
+  urlObserver.observe(document, { subtree: true, childList: true });
 }
 
-// Watch for dynamically added forms
-const observer = new MutationObserver((mutations) => {
-  for (const mutation of mutations) {
-    for (const node of mutation.addedNodes) {
-      if (node instanceof HTMLElement && node.querySelector('input[type="password"]')) {
-        setTimeout(checkForAutofill, 500);
-        return;
-      }
-    }
-  }
-});
-
-observer.observe(document.body, { childList: true, subtree: true });
-
-// Listen for URL changes (SPA navigation)
-let lastUrl = location.href;
-new MutationObserver(() => {
-  const url = location.href;
-  if (url !== lastUrl) {
-    lastUrl = url;
-    setTimeout(checkForAutofill, 1000);
-  }
-}).observe(document, { subtree: true, childList: true });
+init();
