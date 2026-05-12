@@ -58,3 +58,6 @@ chrono = { version = "0.4", features = ["serde"] }
 
 # TOTP
 totp-rs = { workspace = true }
+
+# CSV
+csv = { workspace = true }

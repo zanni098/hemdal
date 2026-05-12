@@ -8,6 +8,7 @@ import VaultDashboard from "./components/VaultDashboard";
 import ItemForm from "./components/ItemForm";
 import ItemDetail from "./components/ItemDetail";
 import SyncPanel from "./components/SyncPanel";
+import ImportExport from "./components/ImportExport";
 import Layout from "./components/Layout";
 
 interface VaultStatus {
@@ -69,6 +70,7 @@ function App() {
         <Route path="/item/:id" element={<ItemDetail />} />
         <Route path="/edit/:id" element={<ItemForm />} />
         <Route path="/sync" element={<SyncPanel />} />
+        <Route path="/import-export" element={<ImportExport />} />
       </Routes>
     </Layout>
   );

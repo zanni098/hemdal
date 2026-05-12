@@ -26,6 +26,9 @@ libp2p = { version = "0.53", features = ["mdns", "noise", "tcp", "yamux"] }
 axum = "0.7"
 tower-http = { version = "0.5", features = ["cors"] }
 
+# CSV parsing
+csv = "1"
+
 # Error handling
 thiserror = "1"
 anyhow = "1"

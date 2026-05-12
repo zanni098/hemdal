@@ -7,6 +7,7 @@ import {
   Variable,
   StickyNote,
   Wifi,
+  ArrowDownUp,
 } from "lucide-react";
 import { ReactNode } from "react";
 
@@ -21,6 +22,7 @@ const navItems = [
   { icon: FileKey, label: "API Keys", path: "/?type=api-key" },
   { icon: Variable, label: "Env Vars", path: "/?type=environment-variable" },
   { icon: StickyNote, label: "Notes", path: "/?type=note" },
+  { icon: ArrowDownUp, label: "Import / Export", path: "/import-export" },
   { icon: Wifi, label: "Sync", path: "/sync" },
 ];
 
@@ -46,8 +48,8 @@ export default function Layout({ children, onLock }: LayoutProps) {
                 key={item.path}
                 to={item.path}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${isActive
-                    ? "bg-hemdal-950 text-hemdal-400 border border-hemdal-800"
-                    : "text-gray-400 hover:bg-gray-800 hover:text-gray-200"
+                  ? "bg-hemdal-950 text-hemdal-400 border border-hemdal-800"
+                  : "text-gray-400 hover:bg-gray-800 hover:text-gray-200"
                   }`}
               >
                 <item.icon className="w-5 h-5" />

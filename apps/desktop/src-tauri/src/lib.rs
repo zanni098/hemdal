@@ -1,6 +1,7 @@
 pub mod crypto;
 pub mod error;
 pub mod http_api;
+pub mod import;
 pub mod native_messaging;
 pub mod sync;
 pub mod vault;
@@ -317,6 +318,42 @@ fn generate_totp(id: String, state: State<AppState>) -> HemdalResult<TotpCode> {
     })
 }
 
+// ─── Import / Export Commands ────────────────────────────────
+
+#[tauri::command]
+fn import_items(
+    format: String,
+    data: String,
+    state: State<AppState>,
+) -> HemdalResult<crate::import::ImportResult> {
+    touch_activity(&state);
+    let mut vault = state
+        .vault
+        .lock()
+        .map_err(|_| HemdalError::CryptoError("Failed to lock vault mutex".to_string()))?;
+    crate::import::import_from_format(&mut vault, &format, &data)
+}
+
+#[tauri::command]
+fn export_items_json(state: State<AppState>) -> HemdalResult<String> {
+    touch_activity(&state);
+    let vault = state
+        .vault
+        .lock()
+        .map_err(|_| HemdalError::CryptoError("Failed to lock vault mutex".to_string()))?;
+    crate::import::export_to_json(&vault)
+}
+
+#[tauri::command]
+fn export_items_csv(state: State<AppState>) -> HemdalResult<String> {
+    touch_activity(&state);
+    let vault = state
+        .vault
+        .lock()
+        .map_err(|_| HemdalError::CryptoError("Failed to lock vault mutex".to_string()))?;
+    crate::import::export_passwords_to_csv(&vault)
+}
+
 // ─── Sync Commands ─────────────────────────────────────────────
 
 #[derive(Serialize)]
@@ -519,6 +556,9 @@ pub fn run() {
             toggle_favorite,
             get_credentials_for_url,
             generate_totp,
+            import_items,
+            export_items_json,
+            export_items_csv,
             sync_status,
             enable_sync,
             disable_sync,
