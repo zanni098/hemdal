@@ -24,7 +24,8 @@ Hemdal is a secure, cross-platform password, secret, and environment variable ma
 hemdal/
 ├── apps/
 │   ├── desktop/          # Tauri desktop application (React + Rust)
-│   └── extension/        # Browser extension (Chrome/Firefox MV3)
+│   ├── extension/        # Browser extension (Chrome/Firefox MV3)
+│   └── web/              # Marketing website (Next.js + Supabase)
 ├── packages/
 │   ├── types/            # Shared TypeScript types
 │   ├── crypto/           # Shared crypto utilities
@@ -90,6 +91,35 @@ cd apps/desktop && pnpm tauri:build
 3. Enable "Developer mode"
 4. Click "Load unpacked" and select `apps/extension/dist`
 5. The extension will show a checkmark badge when the Hemdal desktop app is running and the vault is unlocked
+
+### Website (Next.js + Supabase)
+
+The `apps/web` directory contains a beautiful marketing website built with Next.js, Tailwind CSS, Framer Motion, and Supabase.
+
+**Features:**
+
+- Animated landing page with Hero, Features, Use Cases, Security, Download, and Newsletter sections
+- Supabase Auth (GitHub OAuth + Magic Link email)
+- Authenticated account dashboard
+- Contact / Newsletter API backend
+- Ready to deploy on Vercel
+
+**Setup:**
+
+1. Copy `apps/web/.env.example` to `apps/web/.env.local`
+2. Add your Supabase project URL and anon key
+3. Run the initial migration in `apps/web/supabase/migrations/001_initial.sql`
+4. Enable GitHub OAuth provider in Supabase Auth settings
+
+**Commands:**
+
+```bash
+# Dev mode
+pnpm dev:web
+
+# Build for production
+pnpm build:web
+```
 
 ## Roadmap
 

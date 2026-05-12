@@ -8,6 +8,8 @@
     "build:desktop": "pnpm --filter @hemdal/desktop build",
     "dev:extension": "pnpm --filter @hemdal/extension dev",
     "build:extension": "pnpm --filter @hemdal/extension build",
+    "dev:web": "pnpm --filter @hemdal/web dev",
+    "build:web": "pnpm --filter @hemdal/web build",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck"
   },
