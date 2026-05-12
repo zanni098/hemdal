@@ -102,9 +102,9 @@ The `apps/web` directory contains a beautiful marketing website built with Next.
 - Supabase Auth (GitHub OAuth + Magic Link email)
 - Authenticated account dashboard
 - Contact / Newsletter API backend
-- Ready to deploy on Vercel
+- Auto-deploys to Vercel on every push to `master`
 
-**Setup:**
+**Local Setup:**
 
 1. Copy `apps/web/.env.example` to `apps/web/.env.local`
 2. Add your Supabase project URL and anon key
@@ -120,6 +120,20 @@ pnpm dev:web
 # Build for production
 pnpm build:web
 ```
+
+**Deploy to Vercel (GitHub Actions):**
+
+1. Install the Vercel CLI locally: `npm i -g vercel`
+2. Login: `vercel login`
+3. Link the project (from `apps/web`): `cd apps/web && vercel link`
+4. Get your token: `vercel tokens create`
+5. In your GitHub repo, go to **Settings > Secrets and variables > Actions** and add:
+   - `VERCEL_TOKEN` — from step 4
+   - `VERCEL_ORG_ID` — from `.vercel/project.json`
+   - `VERCEL_PROJECT_ID` — from `.vercel/project.json`
+   - `NEXT_PUBLIC_SUPABASE_URL` — your Supabase project URL
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` — your Supabase anon key
+6. Push to `master` and the site will auto-deploy via `.github/workflows/deploy-web.yml`
 
 ## Roadmap
 
