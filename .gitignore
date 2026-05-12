@@ -13,6 +13,16 @@ apps/desktop/src-tauri/icons/*.png
 apps/desktop/src-tauri/icons/*.icns
 apps/desktop/src-tauri/icons/*.ico
 
+# Next.js / Web
+.next/
+out/
+apps/web/.next/
+apps/web/out/
+apps/web/node_modules/
+
+# Extension build output
+apps/extension/dist/
+
 # Editor
 .vscode/
 .idea/
@@ -22,6 +32,3 @@ apps/desktop/src-tauri/icons/*.ico
 # OS
 .DS_Store
 Thumbs.db
-
-# Extension build output
-apps/extension/dist/
